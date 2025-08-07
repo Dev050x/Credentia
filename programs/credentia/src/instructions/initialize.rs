@@ -1,13 +1,12 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token};
+use anchor_spl::token_interface::{Mint, TokenInterface};
 
 use crate::Platform;
-
 
 //initializing platform(admin)
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(mut)]   
+    #[account(mut)]
     pub admin: Signer<'info>,
     #[account(
         init,
@@ -30,24 +29,21 @@ pub struct Initialize<'info> {
         mint::decimals = 6,
         mint::authority = platform,
     )]
-    pub reward_mint: Account<'info, Mint>,
-    pub token_program: Program<'info , Token>,
+    pub reward_mint: InterfaceAccount<'info, Mint>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> Initialize<'info>{
-    pub fn init(&mut self , fee_bps: u16 , bumps:&InitializeBumps) -> Result<()> {
-        
-        self.platform.set_inner(Platform{
+impl<'info> Initialize<'info> {
+    pub fn init(&mut self, fee_bps: u16, bumps: &InitializeBumps) -> Result<()> {
+        self.platform.set_inner(Platform {
             authority: self.admin.key(),
             fee_bps,
             reward_bump: bumps.reward_mint,
             treasury_bump: bumps.treasury_vault,
-            bump:bumps.platform,
+            bump: bumps.platform,
         });
 
         Ok(())
     }
 }
-
-

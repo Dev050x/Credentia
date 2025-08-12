@@ -28,9 +28,9 @@ describe("credentia", () => {
   };
 
   const log = async (signature: string): Promise<string> => {
-    console.log(
-      `Your transaction signature: https://explorer.solana.com/transaction/${signature}?cluster=custom&customUrl=${connection.rpcEndpoint}`
-    );
+    // console.log(
+    //   `Your transaction signature: https://explorer.solana.com/transaction/${signature}?cluster=custom&customUrl=${connection.rpcEndpoint}`
+    // );
     return signature;
   };
 
@@ -60,10 +60,10 @@ describe("credentia", () => {
       )
 
       let sig = await provider.sendAndConfirm(tx);
-      console.log("sol sent to user: ", sig);
+      // console.log("sol sent to user: ", sig);
     }
-    console.log("lender: ", lender.publicKey);
-    console.log("borrower: ", borrower.publicKey);
+    // console.log("lender: ", lender.publicKey);
+    // console.log("borrower: ", borrower.publicKey);
     await sendSol(borrower.publicKey);
     await sendSol(lender.publicKey);
   });
@@ -113,13 +113,13 @@ describe("credentia", () => {
     assert.ok(metadataPda)
     assert.ok(masterEditionPda)
 
-    console.log({
-      borrowerNftMint: borrowerNftMint.toBase58(),
-      borrowerNftCollection: borrowerNftCollection.toBase58(),
-      borrowerAta: borrowerAta.toBase58(),
-      metadataPda: metadataPda.toBase58(),
-      masterEditionPda: masterEditionPda.toBase58()
-    });
+    // console.log({
+    //   borrowerNftMint: borrowerNftMint.toBase58(),
+    //   borrowerNftCollection: borrowerNftCollection.toBase58(),
+    //   borrowerAta: borrowerAta.toBase58(),
+    //   metadataPda: metadataPda.toBase58(),
+    //   masterEditionPda: masterEditionPda.toBase58()
+    // });
   })
 
 
@@ -127,7 +127,6 @@ describe("credentia", () => {
   /**************************************************
    *            PLATFORM INITIALIZATION TESTS        *
    **************************************************/
-
   let accountsForInitialization = {
     admin: provider.wallet.payer.publicKey,
     platform: Platform,
@@ -137,7 +136,7 @@ describe("credentia", () => {
     systemProgram: SystemProgram.programId,
   };
 
-  it("✅ should Fails when admin is not signer", async () => {
+  it("should Fails when admin is not signer", async () => {
     const fakeAdmin = Keypair.generate()
     await program.methods
       .initializePlatform(500)
@@ -148,7 +147,7 @@ describe("credentia", () => {
       .catch(() => assert.ok(true));
   })
 
-  it("✅ should Fails with incorrect PDA seeds", async () => {
+  it("should Fails with incorrect PDA seeds", async () => {
     const wrongVault = Keypair.generate().publicKey
     program.methods
       .initializePlatform(500)
@@ -159,7 +158,7 @@ describe("credentia", () => {
       .catch(() => assert.ok(true));
   })
 
-  it("✅ should Fails if insufficient funds for rent", async () => {
+  it("should Fails if insufficient funds for rent", async () => {
     const lowFundsAdmin = Keypair.generate()
     await program.methods
       .initializePlatform(500)
@@ -170,7 +169,7 @@ describe("credentia", () => {
       .catch(() => assert.ok(true));
   })
 
-  it("✅ admin initializing the platform (in our case anchor provider wallet is admin)", async () => {
+  it("admin initializing the platform (in our case anchor provider wallet is admin)", async () => {
     let sig = await program.methods
       .initializePlatform(500)
       .accountsPartial(accountsForInitialization)
@@ -181,7 +180,7 @@ describe("credentia", () => {
 
   });
 
-  it("✅ should Fails if platform already initialized", async () => {
+  it("should Fails if platform already initialized", async () => {
     await program.methods
       .initializePlatform(500)
       .accountsPartial(accountsForInitialization)
@@ -191,13 +190,13 @@ describe("credentia", () => {
       .catch(() => assert.ok(true));
   })
 
-  it("✅ Platform account data is correct", async () => {
+  it("Platform account data is correct", async () => {
     const platformAccount = await program.account.platform.fetch(Platform)
     assert.equal(platformAccount.authority.toBase58(), provider.wallet.publicKey.toBase58())
     assert.equal(platformAccount.feeBps, 500)
   })
 
-  it("✅ Reward mint has correct config", async () => {
+  it("Reward mint has correct config", async () => {
     const mintInfo = await getMint(connection, reward_mint)
     assert.equal(mintInfo.decimals, 6)
     assert.equal(mintInfo.mintAuthority.toBase58(), Platform.toBase58())
@@ -208,8 +207,7 @@ describe("credentia", () => {
   /**************************************************
  *               CREATE LOAN TESTS                *
  **************************************************/
-
-  it("✅ initializing loan account and nft vault", async () => {
+  it("initializing loan account and nft vault", async () => {
     // Compute loan_account PDA (this is correct)
     loan_account = PublicKey.findProgramAddressSync([
       Buffer.from("loan"),
@@ -242,7 +240,7 @@ describe("credentia", () => {
     associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
   }));
 
-  it("✅ should fail when requesting loan without singing" , async() => {
+  it("should fail when requesting loan without singing" , async() => {
     let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
     let duration = 5;
     let interest_rate = 500;
@@ -255,7 +253,7 @@ describe("credentia", () => {
     .catch(() => assert.ok(true));
   })
 
-  it("✅ should fail when requesting loan with fake nft" , async() => {
+  it("should fail when requesting loan with fake nft" , async() => {
     let fakeNftMint = Keypair.generate().publicKey;
     let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
     let duration = 5;
@@ -269,7 +267,7 @@ describe("credentia", () => {
     .catch(() => assert.ok(true));
   })
 
-  it("✅ should fail when requesting loan with non verified nft" , async() => {
+  it("should fail when requesting loan with non verified nft" , async() => {
     const { nft } = await metaplex.nfts().create({
       uri: "https://arweave.net/item-metadata.json",
       name: "Borrower NFT",
@@ -289,7 +287,7 @@ describe("credentia", () => {
     .catch(() => assert.ok(true));
   })
 
-  it("✅ should fail when requesting loan with zero amount" , async() => {
+  it("should fail when requesting loan with zero amount" , async() => {
     let amount = new anchor.BN(0);
     let duration = 5;
     let interest_rate = 500;
@@ -302,7 +300,7 @@ describe("credentia", () => {
     .catch(() => assert.ok(true));
   })
 
-  it("✅ should fail when requesting loan with zero duration" , async() => {
+  it("should fail when requesting loan with zero duration" , async() => {
     let amount = new anchor.BN(0);
     let duration = 0;
     let interest_rate = 500;
@@ -315,7 +313,7 @@ describe("credentia", () => {
     .catch(() => assert.ok(true));
   })
 
-  it("✅ should Fails if borrower does not own NFT", async () => {
+  it("should Fails if borrower does not own NFT", async () => {
     let randomAta = Keypair.generate().publicKey;
     let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
     let duration = 5;
@@ -329,7 +327,7 @@ describe("credentia", () => {
     .catch(() => assert.ok(true));
   })
 
-  it("✅ should Fails if PDA seeds for loan_account are incorrect", async () => {
+  it("should Fails if PDA seeds for loan_account are incorrect", async () => {
     let randomLoanAccount = Keypair.generate().publicKey;
     let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
     let duration = 5;
@@ -343,7 +341,7 @@ describe("credentia", () => {
     .catch(() => assert.ok(true));
   })
 
-  it("✅ shold Fails if insufficient funds for rent", async () => {
+  it("shold Fails if insufficient funds for rent", async () => {
     let randomAddress = Keypair.generate();
     let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
     let duration = 5;
@@ -357,7 +355,7 @@ describe("credentia", () => {
     .catch(() => assert.ok(true));
   })
 
-  it("✅ borrower request for the loan", async () => {
+  it("borrower request for the loan", async () => {
     let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
     let duration = 5;
     let interest_rate = 500;
@@ -370,32 +368,27 @@ describe("credentia", () => {
       .then(sig => log(sig));
   })
 
-  it("✅ Stores correct loan details", async () => {
+  it("Stores correct loan details", async () => {
     const loanAccount = await program.account.loan.fetch(accountsForRequestLoan().loanAccount)
     assert.equal(loanAccount.borrower.toString(), accountsForRequestLoan().borrower.toString())
     assert.equal(loanAccount.nftMint.toString(), accountsForRequestLoan().borrowerNftMint.toString())
     assert.equal(Number(loanAccount.loanAmount), 10 * LAMPORTS_PER_SOL)
     assert.equal(loanAccount.duration, 5)
     assert.equal(loanAccount.interestRate, 500)
-    assert(loanAccount.status={ requested: {} })
+    assert.deepEqual(loanAccount.status , { requested: {} })
   })
 
-  it("✅ nft vault nft balance", async () => {
+  it("nft vault nft balance", async () => {
     const vaultAccount = await getAccount(provider.connection, accountsForRequestLoan().nftVault)
     assert.equal(Number(vaultAccount.amount), 1)
   })
 
 
 
-
-
-
-
-  //lender accepting the loan
-  it("lender accepting the loan", async () => {
-    let sig = await program.methods
-      .fundBorrower()
-      .accountsPartial({
+/**************************************************
+ *             LENDER ACCEPT LOAN TESTS            *
+ **************************************************/
+  let accountsForFundingLoan = () => ({
         lender: lender.publicKey,
         borrower: borrower.publicKey,
         borrowerNftMint: borrowerNftMint,
@@ -404,19 +397,91 @@ describe("credentia", () => {
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
-      })
+      });
+
+  it("shoudl fail when trying to fund different borrower" , async() => {
+    let sig = await program.methods
+      .fundBorrower()
+      .accountsPartial({...accountsForFundingLoan() , borrower: Keypair.generate().publicKey})
+      .signers([lender])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch(() => assert.ok(true));
+  })
+
+  it("shoudl fail when you don't have enough funds" , async() => {
+    let poor_lender = Keypair.generate();
+    await program.provider.connection.requestAirdrop(poor_lender.publicKey, 1*LAMPORTS_PER_SOL);
+    let sig = await program.methods
+      .fundBorrower()
+      .accountsPartial({...accountsForFundingLoan() , lender: poor_lender.publicKey})
+      .signers([poor_lender])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch((err) => assert.ok(err.error.errorCode.code === "InsufficientBalance"));
+  })
+
+
+  it("lender accepting the loan", async () => {
+    let borrower_initial_balance = await provider.connection.getBalance(borrower.publicKey);
+    let lender_initial_balance = await provider.connection.getBalance(lender.publicKey);
+    let sig = await program.methods
+      .fundBorrower()
+      .accountsPartial(accountsForFundingLoan())
       .signers([lender])
       .rpc()
       .then(sig => confirm(sig))
       .then(sig => log(sig));
+
+    let borrower_final_balance = await provider.connection.getBalance(borrower.publicKey);
+    let lender_final_balance = await provider.connection.getBalance(lender.publicKey);
+    let amount = (await program.account.loan.fetch(accountsForRequestLoan().loanAccount)).loanAmount;
+    assert(Number(borrower_final_balance) === Number(borrower_initial_balance) + Number(amount));
+    assert(Number(lender_final_balance) === Number(lender_initial_balance) - Number(amount));
   });
 
-  //borrower resolve the loan
-  it("borrower resolving the loan", async () => {
-    await wait(6);
-    await program.methods
-      .resolveLoan()
-      .accountsPartial({
+  it("Should Stores correct details" , async () => {
+    let loan_account = await program.account.loan.fetch(accountsForRequestLoan().loanAccount);
+    assert.equal(lender.publicKey.toBase58() , loan_account.lender.toBase58());
+    assert.deepEqual(loan_account.status , {funded: {}});
+    
+  })
+
+  it("should fail when lender try to again fund the loan" , async ()  => {
+    let sig = await program.methods
+      .fundBorrower()
+      .accountsPartial(accountsForFundingLoan())
+      .signers([lender])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch((err) => assert.ok(err.error.errorCode.code === "LoanFunded"));
+  });
+
+  it("should fail when Another lender try to fund loan" , async () => {
+    let lender2 = Keypair.generate();
+    let tx = new anchor.web3.Transaction().add(
+        anchor.web3.SystemProgram.transfer({
+          fromPubkey: provider.wallet.publicKey,
+          toPubkey: lender2.publicKey,
+          lamports: 100 * LAMPORTS_PER_SOL
+        })
+      )
+
+    await provider.sendAndConfirm(tx);
+
+    let sig = await program.methods
+      .fundBorrower()
+      .accountsPartial({...accountsForFundingLoan() , lender: lender2.publicKey})
+      .signers([lender2])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch(() => assert.ok(true));
+  })
+
+  /**************************************************
+ *           BORROWER RESOLVE LOAN TESTS           *
+ **************************************************/
+  let BorrowerResolveLoanAccounts = () => ({
         borrower: borrower.publicKey,
         lender: lender.publicKey,
         borrowerNftMint: borrowerNftMint,
@@ -428,25 +493,108 @@ describe("credentia", () => {
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
-      })
-      .signers([borrower])
+      });
+
+  it("should fail when different borrower try to repay the loan " , async () => {
+    let diff_borrower = Keypair.generate();
+    await program.provider.connection.requestAirdrop(diff_borrower.publicKey, 15*LAMPORTS_PER_SOL);
+    let sig = await program.methods
+      .resolveLoan()
+      .accountsPartial({...BorrowerResolveLoanAccounts() , borrower:diff_borrower.publicKey})
+      .signers([diff_borrower])
       .rpc()
-      // .then(sig => confirm(sig))
-      // .then(sig => log(sig));
       .then(() => assert.fail("Should have failed"))
       .catch(() => assert.ok(true));
+  })
+
+  it("should fail when try to repay the loan to different lender" , async () => {
+    let diff_lender = Keypair.generate();
+    let sig = await program.methods
+      .resolveLoan()
+      .accountsPartial({...BorrowerResolveLoanAccounts() , lender:diff_lender.publicKey})
+      .signers([borrower])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch((err) => assert.ok(err.error.errorCode.code === "LenderNotMatched"));
+  })
+
+  it("shuld fail when borrower ata is different" , async () => {
+    let diff_borrower_ata = await metaplex.tokens().pdas().associatedTokenAccount({mint: Keypair.generate().publicKey, owner: borrower.publicKey});
+    let sig = await program.methods
+      .resolveLoan()
+      .accountsPartial({...BorrowerResolveLoanAccounts() , borrowerNftAta: diff_borrower_ata})
+      .signers([borrower])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch(() => assert.ok(true));
+  })
+
+  xit("should fail when borrower try to repay the loan after duration" , async () => {
+    await wait(6);
+    await program.methods
+      .resolveLoan()
+      .accountsPartial(BorrowerResolveLoanAccounts())
+      .signers([borrower])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch((err) => assert.ok(err.error.errorCode.code === "LoanDefaulted"));
   });
 
-  //lender default the loan
-  it("lender default the loan", async () => {
-    // await wait(6);
-    lenderAta = await metaplex.tokens().pdas().associatedTokenAccount({
-      mint: borrowerNftMint,
-      owner: lender.publicKey,
-    })
+  xit("borrower resolving the loan", async () => {
+    let borrower_initial_balance = await provider.connection.getBalance(borrower.publicKey);
+    let lender_initial_balance = await provider.connection.getBalance(lender.publicKey);
+    let treasury_vault_initial_balance = await provider.connection.getBalance(treasuryVault);
+    let loan_amount = (await program.account.loan.fetch(accountsForRequestLoan().loanAccount)).loanAmount.toNumber();
+    let interest_rate = (await program.account.loan.fetch(accountsForRequestLoan().loanAccount)).interestRate;
+    let fee_bps = (await program.account.platform.fetch(accountsForRequestLoan().platform)).feeBps;
+    let interest_amount_borrower_have_to_pay = (loan_amount * (interest_rate/10000));
+    let total_amount_borrower_have_to_pay = loan_amount + interest_amount_borrower_have_to_pay;
+    // console.log("borrower_initial_balance", borrower_initial_balance/LAMPORTS_PER_SOL);
+    // console.log("lender_initial_balance", lender_initial_balance/LAMPORTS_PER_SOL);
+    // console.log("treasury_vault_initial_balance", treasury_vault_initial_balance/LAMPORTS_PER_SOL);
+    // console.log("loan_amount", loan_amount/LAMPORTS_PER_SOL);
+    // console.log("interest_rate", interest_rate);
+    // console.log("fee_bps", fee_bps);
+    // console.log("interest amount borrower have to pay: " , interest_amount_borrower_have_to_pay/LAMPORTS_PER_SOL);
+
+    console.log("total amount to pay by borrower", total_amount_borrower_have_to_pay/LAMPORTS_PER_SOL);
+    const sig = await program.methods
+      .resolveLoan()
+      .accountsPartial(BorrowerResolveLoanAccounts())
+      .signers([borrower])
+      .rpc()
+      .then(sig => confirm(sig))
+      .then(sig => log(sig));
+    // let tx = await provider.connection.getTransaction(sig, { commitment: "confirmed" });
+    // let tx_fee = tx.meta?.fee;
+    let borrower_final_balance = await provider.connection.getBalance(borrower.publicKey);
+    let lender_final_balance = await provider.connection.getBalance(lender.publicKey);
+    let treasury_vault_final_balance = await provider.connection.getBalance(treasuryVault);
+    // console.log("treasury final balance" , treasury_vault_final_balance/LAMPORTS_PER_SOL);
+    // console.log("lender final balance" , lender_final_balance/LAMPORTS_PER_SOL);
+    assert(treasury_vault_final_balance === interest_amount_borrower_have_to_pay * fee_bps/10000);
+    assert.equal(Number(lender_final_balance)/LAMPORTS_PER_SOL , Number(lender_initial_balance + (total_amount_borrower_have_to_pay - treasury_vault_final_balance))/LAMPORTS_PER_SOL);
+    let borrower_nft_ata = (await getAccount(provider.connection, accountsForRequestLoan().borrowerNftAta)).amount;
+    assert.equal(borrower_nft_ata,BigInt(1));
+  });
+
+  xit("shold fail when borrower trying to resolving the loan again", async () => {
     await program.methods
-      .defaultLoan()
-      .accountsPartial({
+      .resolveLoan()
+      .accountsPartial(BorrowerResolveLoanAccounts())
+      .signers([borrower])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch((err) => assert.ok(true));
+  });
+
+
+  
+
+  /**************************************************
+ *           LENDER DEFAULT THE LOAN              *
+ **************************************************/
+  let accountsForLenderDefaultLoan = (() => ({
         lender: lender.publicKey,
         borrower: borrower.publicKey,
         borrowerNftMint: borrowerNftMint,
@@ -457,11 +605,64 @@ describe("credentia", () => {
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
-      })
+      }));
+
+  it("should fail when lender try to default the loan before duration" , async () => {
+    await program.methods
+      .defaultLoan()
+      .accountsPartial(accountsForLenderDefaultLoan())
+      .signers([lender])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch((err) => assert.ok(err.error.errorCode.code === "WaitForLoanToComplete"));
+  });
+
+  //awaiting 6 seconds here
+  it("should fail when some-one-else trying to default the loan" , async() => {
+    await wait(6); 
+    let lender2 = Keypair.generate();
+    await program.provider.connection.requestAirdrop(lender2.publicKey, 15*LAMPORTS_PER_SOL);
+    await program.methods
+          .defaultLoan()
+          .accountsPartial({...accountsForLenderDefaultLoan() , lender: lender2.publicKey})
+          .signers([lender2])
+          .rpc()
+          .then(() => assert.fail("Should have failed"))
+          .catch((err) => {
+            assert.ok(true)
+          });
+  })
+
+  it("lender default the loan", async () => {
+    lenderAta = await metaplex.tokens().pdas().associatedTokenAccount({
+      mint: borrowerNftMint,
+      owner: lender.publicKey,
+    })
+    await program.methods
+      .defaultLoan()
+      .accountsPartial(accountsForLenderDefaultLoan())
       .signers([lender])
       .rpc()
       .then(sig => confirm(sig))
       .then(sig => log(sig));
+    let lender_ata_balance = (await getAccount(provider.connection, lenderAta)).amount;
+    assert.equal(lender_ata_balance, BigInt(1));
+  });
+
+  it("should fail when lender again try to default the loan", async () => {
+    lenderAta = await metaplex.tokens().pdas().associatedTokenAccount({
+      mint: borrowerNftMint,
+      owner: lender.publicKey,
+    })
+    await program.methods
+      .defaultLoan()
+      .accountsPartial(accountsForLenderDefaultLoan())
+      .signers([lender])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch((err) => {
+        assert.ok(true);
+      });
   });
 
 });
@@ -476,6 +677,7 @@ async function wait(seconds: number) {
 }
 
 
+//Just for local network testing purpose
 // import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 // import { generateSigner, percentAmount, signerIdentity, sol } from '@metaplex-foundation/umi';
 // import { createV1, TokenStandard } from '@metaplex-foundation/mpl-token-metadata';

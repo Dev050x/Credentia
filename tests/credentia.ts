@@ -1,10 +1,10 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Credentia } from "../target/types/credentia";
-import { LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { keypairIdentity, Metaplex, walk, } from "@metaplex-foundation/js";
-import { assert } from "chai";
-import { ASSOCIATED_TOKEN_PROGRAM_ID, createMint, getAssociatedTokenAddress, getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { assert, expect } from "chai";
+import { ASSOCIATED_TOKEN_PROGRAM_ID, createMint, getAccount, getAssociatedTokenAddress, getAssociatedTokenAddressSync, getMint, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { MPL_TOKEN_METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
 
 
@@ -34,10 +34,10 @@ describe("credentia", () => {
     return signature;
   };
 
-  const [borrower, lender] = Array.from({length: 2}, () => anchor.web3.Keypair.generate());
+  const [borrower, lender] = Array.from({ length: 2 }, () => anchor.web3.Keypair.generate());
   const Platform = PublicKey.findProgramAddressSync([Buffer.from("platform")], programId)[0];
-  const reward_mint = PublicKey.findProgramAddressSync([Buffer.from("reward_mint") , Platform.toBuffer()], programId )[0];
-  const treasuryVault = PublicKey.findProgramAddressSync([Buffer.from("treasury_vault") , Platform.toBuffer()] , programId)[0];
+  const reward_mint = PublicKey.findProgramAddressSync([Buffer.from("reward_mint"), Platform.toBuffer()], programId)[0];
+  const treasuryVault = PublicKey.findProgramAddressSync([Buffer.from("treasury_vault"), Platform.toBuffer()], programId)[0];
   //nfts stuff
   const metaplex = Metaplex.make(provider.connection).use(keypairIdentity(borrower));
   let borrowerNftMint: PublicKey
@@ -48,19 +48,19 @@ describe("credentia", () => {
   let nft_vault: PublicKey
   let loan_account: PublicKey
   let lenderAta: PublicKey
-  it("airdrop sol to lender and borrower" , async () => {
+  it("airdrop sol to lender and borrower", async () => {
     //sending sol to user
-    let sendSol = async (user:PublicKey) => {
+    let sendSol = async (user: PublicKey) => {
       let tx = new anchor.web3.Transaction().add(
         anchor.web3.SystemProgram.transfer({
-          fromPubkey:provider.wallet.publicKey,
-          toPubkey:user,
+          fromPubkey: provider.wallet.publicKey,
+          toPubkey: user,
           lamports: 100 * LAMPORTS_PER_SOL
         })
       )
 
       let sig = await provider.sendAndConfirm(tx);
-      console.log("sol sent to user: ",sig);
+      console.log("sol sent to user: ", sig);
     }
     console.log("lender: ", lender.publicKey);
     console.log("borrower: ", borrower.publicKey);
@@ -68,7 +68,7 @@ describe("credentia", () => {
     await sendSol(lender.publicKey);
   });
 
-  it("sets up nft and verifies borrower nft" , async () => {
+  it("sets up nft and verifies borrower nft", async () => {
     // 1. Create collection NFT(done by provider metaplex provider in our case it is borrower)
     const { nft: collectionNft } = await metaplex.nfts().create({
       uri: "https://arweave.net/collection-metadata.json",
@@ -122,111 +122,319 @@ describe("credentia", () => {
     });
   })
 
-  it("admin initializing the platform (in our case anchor provider wallet is admin)", async () => {
+
+
+  /**************************************************
+   *            PLATFORM INITIALIZATION TESTS        *
+   **************************************************/
+
+  let accountsForInitialization = {
+    admin: provider.wallet.payer.publicKey,
+    platform: Platform,
+    treasuryVault: treasuryVault,
+    rewardMint: reward_mint,
+    tokenProgram: TOKEN_PROGRAM_ID,
+    systemProgram: SystemProgram.programId,
+  };
+
+  it("✅ should Fails when admin is not signer", async () => {
+    const fakeAdmin = Keypair.generate()
+    await program.methods
+      .initializePlatform(500)
+      .accountsPartial({ ...accountsForInitialization, admin: fakeAdmin.publicKey })
+      .signers([]) // intentionally no signer for fake admin
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch(() => assert.ok(true));
+  })
+
+  it("✅ should Fails with incorrect PDA seeds", async () => {
+    const wrongVault = Keypair.generate().publicKey
+    program.methods
+      .initializePlatform(500)
+      .accountsPartial({ ...accountsForInitialization, treasuryVault: wrongVault })
+      .signers([])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch(() => assert.ok(true));
+  })
+
+  it("✅ should Fails if insufficient funds for rent", async () => {
+    const lowFundsAdmin = Keypair.generate()
+    await program.methods
+      .initializePlatform(500)
+      .accountsPartial({ ...accountsForInitialization, admin: lowFundsAdmin.publicKey })
+      .signers([lowFundsAdmin])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch(() => assert.ok(true));
+  })
+
+  it("✅ admin initializing the platform (in our case anchor provider wallet is admin)", async () => {
     let sig = await program.methods
-    .initializePlatform(500)
-    .accountsPartial({
-      admin:provider.wallet.payer.publicKey,
-      platform: Platform,
-      treasuryVault: treasuryVault,
-      rewardMint: reward_mint,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
-    })
-    .signers([])
-    .rpc()
-    .then(sig => confirm(sig))
-    .then(sig => log(sig));
+      .initializePlatform(500)
+      .accountsPartial(accountsForInitialization)
+      .signers([])
+      .rpc()
+      .then(sig => confirm(sig))
+      .then(sig => log(sig));
 
   });
 
-  it("borrower request for the loan" , async() => {
+  it("✅ should Fails if platform already initialized", async () => {
+    await program.methods
+      .initializePlatform(500)
+      .accountsPartial(accountsForInitialization)
+      .signers([])
+      .rpc()
+      .then(() => assert.fail("Should have failed"))
+      .catch(() => assert.ok(true));
+  })
+
+  it("✅ Platform account data is correct", async () => {
+    const platformAccount = await program.account.platform.fetch(Platform)
+    assert.equal(platformAccount.authority.toBase58(), provider.wallet.publicKey.toBase58())
+    assert.equal(platformAccount.feeBps, 500)
+  })
+
+  it("✅ Reward mint has correct config", async () => {
+    const mintInfo = await getMint(connection, reward_mint)
+    assert.equal(mintInfo.decimals, 6)
+    assert.equal(mintInfo.mintAuthority.toBase58(), Platform.toBase58())
+  })
+
+
+
+  /**************************************************
+ *               CREATE LOAN TESTS                *
+ **************************************************/
+
+  it("✅ initializing loan account and nft vault", async () => {
     // Compute loan_account PDA (this is correct)
     loan_account = PublicKey.findProgramAddressSync([
-        Buffer.from("loan"), 
-        borrowerNftMint.toBuffer(), 
-        Platform.toBuffer()
+      Buffer.from("loan"),
+      borrowerNftMint.toBuffer(),
+      Platform.toBuffer()
     ], programId)[0];
-    
+
     // Compute nft_vault AFTER loan_account PDA is computed
     nft_vault = await getAssociatedTokenAddress(
-        borrowerNftMint, 
-        loan_account, 
-        true, 
-        TOKEN_PROGRAM_ID, 
+      borrowerNftMint,
+      loan_account,
+      true,
+      TOKEN_PROGRAM_ID,
     );
+  })
 
+  let accountsForRequestLoan = (() => ({
+    borrower: borrower.publicKey,
+    borrowerNftMint: borrowerNftMint,
+    borrowerNftCollection: borrowerNftCollection,
+    borrowerNftAta: borrowerAta,
+    metadata: metadataPda,
+    masterEdition: masterEditionPda,
+    loanAccount: loan_account,
+    nftVault: nft_vault,
+    platform: Platform,
+    metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+    systemProgram: SystemProgram.programId,
+    tokenProgram: TOKEN_PROGRAM_ID,
+    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
+  }));
+
+  it("✅ should fail when requesting loan without singing" , async() => {
     let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
     let duration = 5;
     let interest_rate = 500;
     await program.methods
     .requestLoan(amount, duration, interest_rate)
-    .accountsPartial({
-      borrower: borrower.publicKey,
-      borrowerNftMint: borrowerNftMint,
-      borrowerNftCollection: borrowerNftCollection,
-      borrowerNftAta: borrowerAta,
-      metadata: metadataPda,
-      masterEdition: masterEditionPda,
-      loanAccount: loan_account,
-      nftVault: nft_vault,
-      platform: Platform,
-      metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
-    })
-    .signers([borrower])
+    .accountsPartial(accountsForRequestLoan())
+    .signers([])
     .rpc()
-    .then(sig => confirm(sig))
-    .then(sig => log(sig));
-
+    .then(() => assert.fail("Should have failed"))
+    .catch(() => assert.ok(true));
   })
 
-  //lender accepting the loan
-  it("lender accepting the loan" , async() => {
-    let sig = await program.methods
-    .fundBorrower()
-    .accountsPartial({
-      lender: lender.publicKey,
-      borrower: borrower.publicKey,
-      borrowerNftMint: borrowerNftMint,
-      loanAccount: loan_account,
-      platform: Platform,
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
-    })
-    .signers([lender])
+  it("✅ should fail when requesting loan with fake nft" , async() => {
+    let fakeNftMint = Keypair.generate().publicKey;
+    let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
+    let duration = 5;
+    let interest_rate = 500;
+    await program.methods
+    .requestLoan(amount, duration, interest_rate)
+    .accountsPartial({...accountsForRequestLoan , borrowerNftMint: fakeNftMint})
+    .signers([borrower])
     .rpc()
-    .then(sig => confirm(sig))
-    .then(sig => log(sig));
+    .then(() => assert.fail("Should have failed"))
+    .catch(() => assert.ok(true));
+  })
+
+  it("✅ should fail when requesting loan with non verified nft" , async() => {
+    const { nft } = await metaplex.nfts().create({
+      uri: "https://arweave.net/item-metadata.json",
+      name: "Borrower NFT",
+      sellerFeeBasisPoints: 0,
+      collection: borrowerNftCollection
+    });
+    let fakeNftMint = nft.address;
+    let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
+    let duration = 5;
+    let interest_rate = 500;
+    await program.methods
+    .requestLoan(amount, duration, interest_rate)
+    .accountsPartial({...accountsForRequestLoan , borrowerNftMint: fakeNftMint})
+    .signers([borrower])
+    .rpc()
+    .then(() => assert.fail("Should have failed"))
+    .catch(() => assert.ok(true));
+  })
+
+  it("✅ should fail when requesting loan with zero amount" , async() => {
+    let amount = new anchor.BN(0);
+    let duration = 5;
+    let interest_rate = 500;
+    await program.methods
+    .requestLoan(amount, duration, interest_rate)
+    .accountsPartial(accountsForRequestLoan())
+    .signers([borrower])
+    .rpc()
+    .then(() => assert.fail("Should have failed"))
+    .catch(() => assert.ok(true));
+  })
+
+  it("✅ should fail when requesting loan with zero duration" , async() => {
+    let amount = new anchor.BN(0);
+    let duration = 0;
+    let interest_rate = 500;
+    await program.methods
+    .requestLoan(amount, duration, interest_rate)
+    .accountsPartial(accountsForRequestLoan())
+    .signers([borrower])
+    .rpc()
+    .then(() => assert.fail("Should have failed"))
+    .catch(() => assert.ok(true));
+  })
+
+  it("✅ should Fails if borrower does not own NFT", async () => {
+    let randomAta = Keypair.generate().publicKey;
+    let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
+    let duration = 5;
+    let interest_rate = 500;
+    await program.methods
+    .requestLoan(amount, duration, interest_rate)
+    .accountsPartial({...accountsForRequestLoan , borrowerNftAta: randomAta})
+    .signers([borrower])
+    .rpc()
+    .then(() => assert.fail("Should have failed"))
+    .catch(() => assert.ok(true));
+  })
+
+  it("✅ should Fails if PDA seeds for loan_account are incorrect", async () => {
+    let randomLoanAccount = Keypair.generate().publicKey;
+    let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
+    let duration = 5;
+    let interest_rate = 500;
+    await program.methods
+    .requestLoan(amount, duration, interest_rate)
+    .accountsPartial({...accountsForRequestLoan , loanAccount: randomLoanAccount})
+    .signers([borrower])
+    .rpc()
+    .then(() => assert.fail("Should have failed"))
+    .catch(() => assert.ok(true));
+  })
+
+  it("✅ shold Fails if insufficient funds for rent", async () => {
+    let randomAddress = Keypair.generate();
+    let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
+    let duration = 5;
+    let interest_rate = 500;
+    await program.methods
+    .requestLoan(amount, duration, interest_rate)
+    .accountsPartial({...accountsForRequestLoan , borrower: randomAddress.publicKey})
+    .signers([randomAddress])
+    .rpc()
+    .then(() => assert.fail("Should have failed"))
+    .catch(() => assert.ok(true));
+  })
+
+  it("✅ borrower request for the loan", async () => {
+    let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
+    let duration = 5;
+    let interest_rate = 500;
+    await program.methods
+      .requestLoan(amount, duration, interest_rate)
+      .accountsPartial(accountsForRequestLoan())
+      .signers([borrower])
+      .rpc()
+      .then(sig => confirm(sig))
+      .then(sig => log(sig));
+  })
+
+  it("✅ Stores correct loan details", async () => {
+    const loanAccount = await program.account.loan.fetch(accountsForRequestLoan().loanAccount)
+    assert.equal(loanAccount.borrower.toString(), accountsForRequestLoan().borrower.toString())
+    assert.equal(loanAccount.nftMint.toString(), accountsForRequestLoan().borrowerNftMint.toString())
+    assert.equal(Number(loanAccount.loanAmount), 10 * LAMPORTS_PER_SOL)
+    assert.equal(loanAccount.duration, 5)
+    assert.equal(loanAccount.interestRate, 500)
+    assert(loanAccount.status={ requested: {} })
+  })
+
+  it("✅ nft vault nft balance", async () => {
+    const vaultAccount = await getAccount(provider.connection, accountsForRequestLoan().nftVault)
+    assert.equal(Number(vaultAccount.amount), 1)
+  })
+
+
+
+
+
+
+
+  //lender accepting the loan
+  it("lender accepting the loan", async () => {
+    let sig = await program.methods
+      .fundBorrower()
+      .accountsPartial({
+        lender: lender.publicKey,
+        borrower: borrower.publicKey,
+        borrowerNftMint: borrowerNftMint,
+        loanAccount: loan_account,
+        platform: Platform,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
+      })
+      .signers([lender])
+      .rpc()
+      .then(sig => confirm(sig))
+      .then(sig => log(sig));
   });
 
   //borrower resolve the loan
-  it("borrower resolving the loan" , async() => {
+  it("borrower resolving the loan", async () => {
     await wait(6);
     await program.methods
-    .resolveLoan()
-    .accountsPartial({
-      borrower: borrower.publicKey,
-      lender: lender.publicKey,
-      borrowerNftMint: borrowerNftMint,
-      borrowerNftAta: borrowerAta,
-      platform: Platform,
-      loanAccount: loan_account,
-      nftVault: nft_vault,
-      treasuryVault: treasuryVault,
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
-    })
-    .signers([borrower])
-    .rpc()
-    // .then(sig => confirm(sig))
-    // .then(sig => log(sig));
-    .then(() => assert.fail("Should have failed"))
-    .catch(() => assert.ok(true));
+      .resolveLoan()
+      .accountsPartial({
+        borrower: borrower.publicKey,
+        lender: lender.publicKey,
+        borrowerNftMint: borrowerNftMint,
+        borrowerNftAta: borrowerAta,
+        platform: Platform,
+        loanAccount: loan_account,
+        nftVault: nft_vault,
+        treasuryVault: treasuryVault,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
+      })
+      .signers([borrower])
+      .rpc()
+      // .then(sig => confirm(sig))
+      // .then(sig => log(sig));
+      .then(() => assert.fail("Should have failed"))
+      .catch(() => assert.ok(true));
   });
 
   //lender default the loan
@@ -237,23 +445,23 @@ describe("credentia", () => {
       owner: lender.publicKey,
     })
     await program.methods
-    .defaultLoan()
-    .accountsPartial({
-      lender: lender.publicKey,
-      borrower: borrower.publicKey,
-      borrowerNftMint: borrowerNftMint,
-      lenderNftAta: lenderAta,
-      platform: Platform,
-      loanAccount: loan_account,
-      nftVault: nft_vault,
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
-    })
-    .signers([lender])
-    .rpc()
-    .then(sig => confirm(sig))
-    .then(sig => log(sig));
+      .defaultLoan()
+      .accountsPartial({
+        lender: lender.publicKey,
+        borrower: borrower.publicKey,
+        borrowerNftMint: borrowerNftMint,
+        lenderNftAta: lenderAta,
+        platform: Platform,
+        loanAccount: loan_account,
+        nftVault: nft_vault,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
+      })
+      .signers([lender])
+      .rpc()
+      .then(sig => confirm(sig))
+      .then(sig => log(sig));
   });
 
 });
@@ -264,7 +472,7 @@ async function wait(seconds: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, seconds * 1000);
   });
-  
+
 }
 
 

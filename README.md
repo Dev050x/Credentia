@@ -1,6 +1,6 @@
 # Credentia – P2P NFT Lending Platform
 
-**Credentia** is a peer-to-peer NFT lending protocol built on **Solana**, enabling NFT holders to unlock liquidity without selling their assets. Borrowers can use NFTs as collateral to receive tokens like SOL or USDC, while lenders earn interest or acquire the NFT if the borrower defaults. The platform focuses on **full loan customizability**, **support for long-tail NFTs**, and **low fees**, creating a more inclusive and efficient DeFi lending ecosystem.
+**Credentia** is a peer-to-peer NFT lending protocol built on **Solana**, enabling NFT holders to unlock liquidity without selling their assets. Borrowers can use NFTs as collateral to receive tokens like SOL or USDC(in V2), while lenders earn interest or acquire the NFT if the borrower defaults. The platform focuses on **full loan customizability**, **support for long-tail NFTs**, and **low fees**, creating a more inclusive and efficient DeFi lending ecosystem.
 
 ---
 

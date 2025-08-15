@@ -3,10 +3,16 @@ use anchor_lang::{
     system_program::{transfer, Transfer},
 };
 use anchor_spl::{
-    associated_token::AssociatedToken, token::{close_account, transfer_checked, CloseAccount, TransferChecked}, token_interface::{Mint, TokenAccount, TokenInterface}
+    associated_token::AssociatedToken,
+    token::{close_account, transfer_checked, CloseAccount, TransferChecked},
+    token_interface::{Mint, TokenAccount, TokenInterface},
 };
 
-use crate::{error::ErrorCode, events::{LoanRepaid, NFTClaimed}, Loan, LoanStatus, Platform};
+use crate::{
+    error::ErrorCode,
+    events::{LoanRepaid, NFTClaimed},
+    Loan, LoanStatus, Platform,
+};
 
 #[derive(Accounts)]
 pub struct ResolveLoan<'info> {
@@ -42,6 +48,7 @@ pub struct ResolveLoan<'info> {
     )]
     pub nft_vault: InterfaceAccount<'info, TokenAccount>,
     #[account(
+        mut,
         seeds = [b"treasury_vault", platform.key().as_ref()],
         bump,
     )]
@@ -55,10 +62,12 @@ pub struct ResolveLoan<'info> {
 impl<'info> ResolveLoan<'info> {
     //borrower transfer fee(interest * percentage of fee) to marketplace and transfer fund to lender(amount + interest-marketplace fee)
     pub fn transfer_amount(&mut self) -> Result<()> {
-        let start_time = self.loan_account.start_time.ok_or(ErrorCode::LoanDefaulted)?;
+        let start_time = self
+            .loan_account
+            .start_time
+            .ok_or(ErrorCode::LoanNotStarted)?;
         require!(
-            Clock::get()?.unix_timestamp - start_time
-                <= self.loan_account.duration as i64,
+            Clock::get()?.unix_timestamp - start_time <=(self.loan_account.duration as i64), 
             ErrorCode::LoanDefaulted
         );
         require!(
@@ -70,7 +79,10 @@ impl<'info> ResolveLoan<'info> {
             ErrorCode::LoanDefaulted
         );
         //NOTE: if you have to change this if you change in future
-        require!(self.loan_account.lender == Some(self.lender.key()) , ErrorCode::LenderNotMatched);
+        require!(
+            self.loan_account.lender == Some(self.lender.key()),
+            ErrorCode::LenderNotMatched
+        );
 
         let loan_amount = self.loan_account.loan_amount;
         let interest_rate = self.loan_account.interest_rate;
@@ -93,7 +105,10 @@ impl<'info> ResolveLoan<'info> {
             .unwrap()
             .checked_sub(fee_for_platform)
             .unwrap();
-        require!(self.borrower.lamports() >= amount_to_pay_lender + fee_for_platform , ErrorCode::InsufficientBalance);
+        require!(
+            self.borrower.lamports() >= amount_to_pay_lender + fee_for_platform,
+            ErrorCode::InsufficientBalance
+        );
 
         //transfering fee to platform
         let cpi_context_1 = CpiContext::new(
@@ -131,7 +146,10 @@ impl<'info> ResolveLoan<'info> {
 
     //now borrower can resolve the loan(transfering back the NFT to the borrower from the nft_vault and close the vault account and laon account)
     pub fn claim_nft(&mut self) -> Result<()> {
-        require!(self.loan_account.status == LoanStatus::Repaid , ErrorCode::LoanNotRepaided);
+        require!(
+            self.loan_account.status == LoanStatus::Repaid,
+            ErrorCode::LoanNotRepaided
+        );
         let seeds = &[
             b"loan".as_ref(),
             &self.borrower_nft_mint.key().to_bytes()[..],
@@ -140,15 +158,18 @@ impl<'info> ResolveLoan<'info> {
         ];
         let signer_seeds = &[&seeds[..]];
 
-        let cpi_context = CpiContext::new_with_signer(self.token_program.to_account_info(), TransferChecked{
-            from: self.nft_vault.to_account_info(),
-            mint: self.borrower_nft_mint.to_account_info(),
-            to: self.borrower_nft_ata.to_account_info(),
-            authority: self.loan_account.to_account_info(),
-        },signer_seeds);
+        let cpi_context = CpiContext::new_with_signer(
+            self.token_program.to_account_info(),
+            TransferChecked {
+                from: self.nft_vault.to_account_info(),
+                mint: self.borrower_nft_mint.to_account_info(),
+                to: self.borrower_nft_ata.to_account_info(),
+                authority: self.loan_account.to_account_info(),
+            },
+            signer_seeds,
+        );
 
         transfer_checked(cpi_context, 1, self.borrower_nft_mint.decimals)?;
-
 
         //closing nft_vault account
         // close the nft_vault token account (returns rent to borrower)

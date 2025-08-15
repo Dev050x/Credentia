@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+
 #[error_code]
 pub enum ErrorCode {
     #[msg("Invalild Loan Amount")]
@@ -28,4 +29,6 @@ pub enum ErrorCode {
     LoanAlreadyDefaulted,
     #[msg("Loan not started yet")]
     LoanNotStarted,
+    #[msg("Loan is funded")]
+    LoanAlreadyFunded,
 }

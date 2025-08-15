@@ -1,10 +1,13 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    associated_token::AssociatedToken, metadata::{MasterEditionAccount, Metadata, MetadataAccount}, token::{transfer, Transfer}, token_interface::{Mint, TokenAccount, TokenInterface}
+    associated_token::AssociatedToken,
+    metadata::{MasterEditionAccount, Metadata, MetadataAccount},
+    token::{transfer_checked, TransferChecked},
+    token_interface::{Mint, TokenAccount, TokenInterface},
 };
 
-use crate::{error::ErrorCode};
-use crate::state::{Loan , LoanStatus , Platform};
+use crate::state::{Loan, LoanStatus, Platform};
+use crate::{error::ErrorCode, events::LoanRequested};
 
 //borrower create a loan
 #[derive(Accounts)]
@@ -69,7 +72,7 @@ pub struct CreateLoan<'info> {
     pub metadata_program: Program<'info, Metadata>,
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
-    pub associated_token_program: Program<'info , AssociatedToken>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 }
 
 impl<'info> CreateLoan<'info> {
@@ -92,21 +95,33 @@ impl<'info> CreateLoan<'info> {
             status: LoanStatus::Requested,
             interest_rate: interest_rate,
             bump: bumps.loan_account,
-            start_time:None,
+            start_time: None,
             time_of_liquidation_or_repayment: None,
         });
         Ok(())
     }
 
-    pub fn transfer_nft_vault(&mut self) -> Result<()>{
+    pub fn transfer_nft_vault(&mut self) -> Result<()> {
+        let cpi_context = CpiContext::new(
+            self.token_program.to_account_info(),
+            TransferChecked {
+                from: self.borrower_nft_ata.to_account_info(),
+                mint: self.borrower_nft_mint.to_account_info(),
+                to: self.nft_vault.to_account_info(),
+                authority: self.borrower.to_account_info(),
+            },
+        );
 
-        let cpi_context = CpiContext::new(self.token_program.to_account_info(), Transfer{
-            from:self.borrower_nft_ata.to_account_info(),
-            to: self.nft_vault.to_account_info(),
-            authority: self.borrower.to_account_info(),
+        transfer_checked(cpi_context, 1, self.borrower_nft_mint.decimals)?;
+
+        emit!(LoanRequested {
+            borrower: self.borrower.to_account_info().key(),
+            nft_mint: self.borrower_nft_mint.key(),
+            loan_amount: self.loan_account.loan_amount,
+            duration: self.loan_account.duration,
+            interest_rate: self.loan_account.interest_rate as u8,
+            timestamp: Clock::get()?.unix_timestamp as u64,
         });
-
-        transfer(cpi_context, 1)?;
 
         Ok(())
     }

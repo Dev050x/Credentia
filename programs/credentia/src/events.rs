@@ -34,3 +34,11 @@ pub struct NFTClaimed {
     pub nft_mint: Pubkey,
     pub timestamp: i64,
 }
+
+#[event]
+pub struct LoanCancelled {
+    pub borrower: Pubkey,
+    pub nft_mint: Pubkey,
+    pub platform: Pubkey,
+    pub timestamp: i64,
+}

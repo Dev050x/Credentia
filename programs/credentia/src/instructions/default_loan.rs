@@ -58,7 +58,7 @@ impl<'info> DefaultLoan<'info> {
             .start_time
             .ok_or(ErrorCode::LoanNotStarted)?;
         require!(
-            Clock::get()?.unix_timestamp - start_time >= self.loan_account.duration as i64,
+            Clock::get()?.unix_timestamp - start_time >= (self.loan_account.duration as i64),
             ErrorCode::WaitForLoanToComplete
         );
 

@@ -55,7 +55,7 @@ describe("credentia", () => {
         anchor.web3.SystemProgram.transfer({
           fromPubkey: provider.wallet.publicKey,
           toPubkey: user,
-          lamports: 100 * LAMPORTS_PER_SOL
+          lamports: 2 * LAMPORTS_PER_SOL
         })
       )
 
@@ -356,7 +356,7 @@ describe("credentia", () => {
   })
 
   it("borrower request for the loan", async () => {
-    let amount = new anchor.BN(10 * LAMPORTS_PER_SOL);
+    let amount = new anchor.BN(0.5 * LAMPORTS_PER_SOL);
     let duration = 5;
     let interest_rate = 500;
     await program.methods
